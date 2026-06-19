@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./jps_portal.db"
+}
+
+model User {
+  id                   Int       @id @default(autoincrement())
+  businessName         String?
+  fullName             String
+  email                String    @unique
+  phone                String?
+  password             String
+  role                 String    @default("CLIENT")
+  segment              String    @default("General")
+  status               String    @default("ACTIVE")
+  resetToken           String?
+  resetTokenExpiry     DateTime?
+
+  // Extended profile
+  businessIndustry     String?
+  businessType         String?
+  website              String?
+  address              String?
+  city                 String?
+  state                String?
+  zipCode              String?
+  country              String?
+  preferredComm        String?
+  preferredApptTime    String?
+  billingContact       String?
+  billingEmail         String?
+  taxId                String?
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  notifications Notification[]
+}
+model ServiceRequest {
+  id          Int      @id @default(autoincrement())
+  serviceGroup String
+  projectTitle String
+  businessName String
+  contactName  String
+  email        String
+  phone        String?
+  budgetRange  String?
+  desiredDate  String?
+  description  String?
+  status       String   @default("NEW")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+model Project {
+  id              Int      @id @default(autoincrement())
+  title           String
+  serviceGroup    String
+  clientName      String
+  clientEmail     String
+  clientUserId    Int?
+  description     String?
+  status          String   @default("IN_PROGRESS")
+  progress        Int      @default(0)
+  sourceRequestId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  activities      ProjectActivity[]
+}
+model Invoice {
+  id                 Int       @id @default(autoincrement())
+  projectId          Int?
+
+  invoiceNumber      String    @unique
+
+  clientName         String
+  clientEmail        String
+
+  serviceDescription String
+
+  serviceAmount      Float     @default(0)
+  domainAmount       Float     @default(0)
+  hostingAmount      Float     @default(0)
+
+  shippingAmount     Float     @default(0)
+  installationAmount Float     @default(0)
+
+  taxAmount          Float     @default(0)
+  discountAmount     Float     @default(0)
+
+  totalAmount        Float     @default(0)
+
+  status             String    @default("DRAFT")
+
+  dueDate            DateTime?
+  notes              String?
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+model ProjectFile {
+  id           Int      @id @default(autoincrement())
+  projectId    Int
+  originalName String
+  filename     String
+  path         String
+  createdAt    DateTime @default(now())
+}
+model ProjectMessage {
+  id               Int      @id @default(autoincrement())
+  projectId        Int
+  sender           String
+  senderRole       String   @default("CLIENT")
+  message          String
+  isReadByClient   Boolean  @default(false)
+  isReadByStaff    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}
+model Campaign {
+  id           Int      @id @default(autoincrement())
+  name         String
+  segment      String
+  subject      String
+  emailTitle   String
+  emailBody    String
+  buttonText   String?
+  buttonLink   String?
+  bannerImage  String?
+  status       String   @default("DRAFT")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+model CampaignLog {
+  id           Int      @id @default(autoincrement())
+  campaignName String
+  segment      String
+  recipients   Int
+  successCount Int
+  failedCount  Int
+  status       String   @default("SENT")
+  createdAt    DateTime @default(now())
+}
+model ServiceGroup {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?
+  imageUrl     String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  services      Service[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Service {
+  id             Int      @id @default(autoincrement())
+
+  serviceGroupId Int
+
+  title          String
+  description    String?
+  startingPrice  Float?
+
+  featured       Boolean  @default(false)
+  displayOrder   Int      @default(0)
+  isActive       Boolean  @default(true)
+
+  imageUrl       String?
+
+  serviceGroup   ServiceGroup @relation(fields: [serviceGroupId], references: [id])
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+model ProjectActivity {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+
+  action     String
+  details    String?
+
+  createdAt  DateTime @default(now())
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+model Notification {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  message     String
+  type        String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  category    String   @default("General")
+  subject     String
+  emailTitle  String
+  emailBody   String
+  buttonText  String?
+  buttonLink  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Appointment {
+  id              Int      @id @default(autoincrement())
+  title           String
+  serviceType     String
+  date            String
+  timeSlot        String
+  notes           String?
+  status          String   @default("PENDING")
+
+  createdByUserId Int
+  createdByName   String
+  createdByEmail  String
+  createdByRole   String
+
+  targetUserId    Int?
+  targetName      String?
+  targetEmail     String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
