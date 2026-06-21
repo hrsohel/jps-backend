@@ -21,6 +21,7 @@ import invoiceRoutes from "./routes/invoices.js";
 import notificationRoutes from "./routes/notifications.js";
 import appointmentRoutes from "./routes/appointments.js";
 import emailTemplateRoutes from "./routes/emailTemplates.js";
+import zoomWebhookRoutes from "./routes/zoomWebhook.js";
 import { startCleanupJobs } from "./jobs/cleanup.js";
 
 dotenv.config();
@@ -65,7 +66,15 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use(express.json({ limit: "2mb" }));
+// Capture raw body for Zoom webhook signature verification before JSON parsing
+app.use(
+  express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString("utf8");
+    },
+  })
+);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(limiter);
 
@@ -85,6 +94,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/email-templates", emailTemplateRoutes);
+app.use("/api/zoom", zoomWebhookRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "JPS Client Portal API", timestamp: new Date().toISOString() });
