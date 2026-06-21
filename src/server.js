@@ -21,6 +21,7 @@ import invoiceRoutes from "./routes/invoices.js";
 import notificationRoutes from "./routes/notifications.js";
 import appointmentRoutes from "./routes/appointments.js";
 import emailTemplateRoutes from "./routes/emailTemplates.js";
+import { startCleanupJobs } from "./jobs/cleanup.js";
 
 dotenv.config();
 
@@ -110,6 +111,7 @@ const port = process.env.PORT || 3000;
 
 const server = app.listen(port, () => {
   console.log(`JPS API running on port ${port}`);
+  startCleanupJobs();
 });
 
 server.on("error", (err) => {

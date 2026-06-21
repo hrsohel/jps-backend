@@ -1,7 +1,7 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { requireAuth, STAFF_ROLES } from "../middleware/auth.js";
+import { requireAuth, requireRole, STAFF_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
 const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
@@ -38,6 +38,34 @@ router.get("/unread-count", requireAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Unable to get unread count" });
+  }
+});
+
+// GET full conversation audit log across all projects (staff/admin only)
+router.get("/log/all", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
+  try {
+    const messages = await prisma.projectMessage.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    const projectIds = [...new Set(messages.map((m) => m.projectId))];
+    const projects = await prisma.project.findMany({
+      where: { id: { in: projectIds } },
+      select: { id: true, title: true, clientName: true, clientEmail: true },
+    });
+    const byId = Object.fromEntries(projects.map((p) => [p.id, p]));
+
+    const enriched = messages.map((m) => ({
+      ...m,
+      projectTitle: byId[m.projectId]?.title || `Project #${m.projectId}`,
+      clientName: byId[m.projectId]?.clientName || null,
+      clientEmail: byId[m.projectId]?.clientEmail || null,
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Unable to load conversation log" });
   }
 });
 

@@ -35,6 +35,42 @@ const upload = multer({
   },
 });
 
+// ── Image uploads for email campaigns/banners ──
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
+fs.mkdirSync("uploads/campaigns", { recursive: true });
+
+const imageStorage = multer.diskStorage({
+  destination: "uploads/campaigns",
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
+    cb(null, uniqueName);
+  },
+});
+
+const imageUpload = multer({
+  storage: imageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (IMAGE_EXTENSIONS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Image type not allowed. Allowed: ${IMAGE_EXTENSIONS.join(", ")}`));
+    }
+  },
+});
+
+// Returns an absolute, publicly reachable URL so it can be embedded in emails
+router.post("/image", requireAuth, imageUpload.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No image uploaded" });
+  }
+  const relPath = req.file.path.replace(/\\/g, "/");
+  const url = `${req.protocol}://${req.get("host")}/${relPath}`;
+  res.status(201).json({ url, filename: req.file.filename });
+});
+
 router.post("/projects", requireAuth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {

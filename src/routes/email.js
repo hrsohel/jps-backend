@@ -152,4 +152,76 @@ router.post("/send-segment", requireAuth, requireRole("ADMIN", "MARKETING"), asy
   }
 });
 
+/**
+ * POST /api/email/send-bulk
+ * Send a marketing email to ALL active users, or a specific list of user IDs.
+ * Body: { subject, html, campaignName?, all?: boolean, userIds?: number[] }
+ */
+router.post("/send-bulk", requireAuth, requireRole("ADMIN", "MARKETING"), async (req, res) => {
+  try {
+    const { subject, html, campaignName, all, userIds } = req.body;
+
+    if (!subject || !html) {
+      return res.status(400).json({ error: "subject and html are required" });
+    }
+
+    let users;
+    let targetLabel;
+
+    if (all) {
+      users = await prisma.user.findMany({
+        where: { status: "ACTIVE" },
+        select: { id: true, fullName: true, email: true },
+      });
+      targetLabel = "All Users";
+    } else if (Array.isArray(userIds) && userIds.length > 0) {
+      users = await prisma.user.findMany({
+        where: { id: { in: userIds.map(Number) }, status: "ACTIVE" },
+        select: { id: true, fullName: true, email: true },
+      });
+      targetLabel = "Selected Users";
+    } else {
+      return res.status(400).json({ error: "Provide all=true or a non-empty userIds array" });
+    }
+
+    if (users.length === 0) {
+      return res.status(400).json({ error: "No active recipients found" });
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const user of users) {
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM,
+          to: user.email,
+          subject,
+          html,
+        });
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to send to ${user.email}`, err);
+        failedCount++;
+      }
+    }
+
+    await prisma.campaignLog.create({
+      data: {
+        campaignName: campaignName || subject,
+        segment: targetLabel,
+        recipients: users.length,
+        successCount,
+        failedCount,
+        status: "SENT",
+      },
+    });
+
+    res.json({ success: true, recipients: users.length, successCount, failedCount });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Unable to send bulk email", details: error.message });
+  }
+});
+
 export default router;
