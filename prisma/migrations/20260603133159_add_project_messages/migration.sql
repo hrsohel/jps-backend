@@ -1,8 +1,0 @@
--- CreateTable
-CREATE TABLE "ProjectMessage" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "projectId" INTEGER NOT NULL,
-    "sender" TEXT NOT NULL,
-    "message" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
