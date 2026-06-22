@@ -36,6 +36,8 @@ app.use(helmet({
 
 const allowedOrigins = [
   "https://app.jpssupport.com",
+  "https://my.jpssupport.com",
+  "https://my.jpscoreinc.com",
 ];
 
 app.use(

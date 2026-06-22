@@ -7,7 +7,7 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "seed": "node prisma/seed.mjs",
-    "deploy": "prisma db push && node src/server.js"
+    "deploy": "node src/server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
