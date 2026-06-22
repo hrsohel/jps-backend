@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node src/server.js",
     "start": "node src/server.js",
-    "setup": "prisma generate && prisma db push",
-    "seed": "node prisma/seed.mjs"
+    "seed": "node prisma/seed.mjs",
+    "deploy": "prisma db push && node src/server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
