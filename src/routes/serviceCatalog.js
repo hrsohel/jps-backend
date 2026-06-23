@@ -50,6 +50,7 @@ router.post("/groups", requireAuth, requireRole(...ADMIN_ROLES), async (req, res
         imageUrl: req.body.imageUrl,
         displayOrder: Number(req.body.displayOrder || 0),
         isActive: req.body.isActive ?? true,
+        featured: req.body.featured ?? false,
       },
     });
 
@@ -70,6 +71,7 @@ router.put("/groups/:id", requireAuth, requireRole(...ADMIN_ROLES), async (req, 
         imageUrl: req.body.imageUrl,
         displayOrder: Number(req.body.displayOrder || 0),
         isActive: req.body.isActive ?? true,
+        featured: req.body.featured ?? false,
       },
     });
 

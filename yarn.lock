@@ -910,6 +910,11 @@ string_decoder@^1.1.1:
   dependencies:
     safe-buffer "~5.2.0"
 
+stripe@^22.2.3:
+  version "22.2.3"
+  resolved "https://registry.npmjs.org/stripe/-/stripe-22.2.3.tgz"
+  integrity sha512-9lrggvLtjO4Ef5WXH4t50ckHJcJgTD72xFB+KJgZCSszAH9zMV1BqU6PwmWbRLdcdX7LK6PbErBapiGK7pIb+g==
+
 tinyexec@^1.1.1:
   version "1.2.3"
   resolved "https://registry.npmjs.org/tinyexec/-/tinyexec-1.2.3.tgz"

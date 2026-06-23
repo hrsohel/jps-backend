@@ -21,8 +21,9 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.11",
-    "zod": "latest",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "stripe": "^22.2.3",
+    "zod": "latest"
   },
   "devDependencies": {
     "prisma": "^6.19.3"

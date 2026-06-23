@@ -101,6 +101,11 @@ model Invoice {
   dueDate DateTime?
   notes   String?   @db.Text
 
+  // Stripe payment tracking
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+  clientId              Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -158,6 +163,7 @@ model ServiceGroup {
   imageUrl     String? @db.Text
   displayOrder Int     @default(0)
   isActive     Boolean @default(true)
+  featured     Boolean @default(false)
 
   services Service[]
 
