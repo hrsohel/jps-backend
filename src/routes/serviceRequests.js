@@ -17,6 +17,7 @@ const serviceRequestSchema = z.object({
   budgetRange: z.string().optional(),
   desiredDate: z.string().optional(),
   description: z.string().optional(),
+  attachmentUrl: z.string().optional(),
 });
 
 router.post("/", requireAuth, async (req, res) => {

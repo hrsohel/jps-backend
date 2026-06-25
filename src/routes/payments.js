@@ -83,6 +83,58 @@ router.post("/confirm-payment", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/payments/checkout-session
+// Creates a Stripe Hosted Checkout Session — returns { url } for redirect
+router.post("/checkout-session", requireAuth, async (req, res) => {
+  try {
+    const { invoiceId } = req.body;
+    if (!invoiceId) return res.status(400).json({ error: "invoiceId required" });
+
+    const invoice = await prisma.invoice.findUnique({ where: { id: Number(invoiceId) } });
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+    if (invoice.clientEmail !== req.user.email && !ADMIN_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (invoice.status === "PAID") {
+      return res.status(400).json({ error: "Invoice is already paid" });
+    }
+
+    const stripe = getStripe();
+    const frontendUrl = process.env.FRONTEND_URL || "https://my.jpscoreinc.com";
+    const amountCents = Math.round(Number(invoice.totalAmount) * 100);
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer_email: invoice.clientEmail,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            unit_amount: amountCents,
+            product_data: {
+              name: `Invoice ${invoice.invoiceNumber}`,
+              description: invoice.serviceDescription || "JPS Core Services",
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        invoiceId: String(invoice.id),
+        invoiceNumber: invoice.invoiceNumber,
+      },
+      success_url: `${frontendUrl}?page=invoice-paid&invoice=${invoice.id}`,
+      cancel_url: `${frontendUrl}?page=Invoices`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("Stripe checkout-session error:", err);
+    res.status(500).json({ error: err.message || "Checkout error" });
+  }
+});
+
 // GET /api/payments/config
 // Returns the publishable key for the frontend
 router.get("/config", requireAuth, (req, res) => {

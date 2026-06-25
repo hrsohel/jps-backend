@@ -87,12 +87,7 @@ router.post("/", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
       }).catch(() => {});
     }
 
-    sendEmail({
-      to: invoice.clientEmail,
-      subject: `Invoice ${invoice.invoiceNumber} — JPS Core`,
-      html: invoiceEmailHtml(invoice),
-    }).catch(() => {});
-
+    // Email is NOT sent on draft creation — admin must click "Email Invoice" explicitly
     res.status(201).json(invoice);
   } catch (error) {
     console.error(error);
@@ -141,8 +136,28 @@ router.patch("/:id", requireAuth, requireRole(...STAFF_ROLES), async (req, res) 
           Number(req.body.discountAmount || 0),
         dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
         notes: req.body.notes !== undefined ? req.body.notes : undefined,
+        status: "SENT",
       },
     });
+
+    // Notify client that invoice has been updated/sent
+    const clientUser = await prisma.user.findUnique({ where: { email: invoice.clientEmail } });
+    if (clientUser) {
+      prisma.notification.create({
+        data: {
+          userId: clientUser.id,
+          title: "Invoice Updated",
+          message: `Invoice ${invoice.invoiceNumber} for $${invoice.totalAmount.toFixed(2)} has been updated. Please review.`,
+          type: "INVOICE",
+        },
+      }).catch(() => {});
+    }
+
+    sendEmail({
+      to: invoice.clientEmail,
+      subject: `Invoice ${invoice.invoiceNumber} — JPS Core`,
+      html: invoiceEmailHtml(invoice),
+    }).catch(() => {});
 
     res.json(invoice);
   } catch (error) {
