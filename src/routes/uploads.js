@@ -86,6 +86,39 @@ router.post("/projects", requireAuth, upload.single("file"), async (req, res) =>
       },
     });
 
+    // Notify the project client + all admins about the new file
+    const project = await prisma.project.findUnique({
+      where: { id: Number(req.body.projectId) },
+    }).catch(() => null);
+
+    if (project) {
+      if (project.clientUserId && project.clientUserId !== req.user.userId) {
+        await prisma.notification.create({
+          data: {
+            userId: project.clientUserId,
+            title: "New File Available",
+            message: `A new file "${req.file.originalname}" was uploaded to your project "${project.title}".`,
+            type: "FILE",
+          },
+        }).catch(() => {});
+      }
+      const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+      await Promise.all(
+        admins
+          .filter((a) => a.id !== req.user.userId)
+          .map((admin) =>
+            prisma.notification.create({
+              data: {
+                userId: admin.id,
+                title: "File Uploaded",
+                message: `"${req.file.originalname}" was uploaded to project "${project.title}".`,
+                type: "FILE",
+              },
+            }).catch(() => {})
+          )
+      );
+    }
+
     res.status(201).json({ message: "File uploaded successfully", file: savedFile });
   } catch (error) {
     console.error(error);

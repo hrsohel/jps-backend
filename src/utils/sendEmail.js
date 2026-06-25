@@ -17,7 +17,7 @@ export async function sendEmail({ to, subject, html }) {
   });
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || "JPS Support <noreply@jpssupport.com>",
+    from: process.env.SMTP_FROM || "JPS Core <noreply@jpscoreinc.com>",
     to,
     subject,
     html,

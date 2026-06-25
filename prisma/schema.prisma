@@ -264,3 +264,16 @@ model ZoomWebhookLog {
   processed Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model SiteBanner {
+  id        Int      @id @default(autoincrement())
+  title     String   @default("Everything Your Business Needs to Grow")
+  subtitle  String?  @db.Text
+  imageUrl  String?  @db.Text
+  cta1Text  String?  @default("Request Service")
+  cta1Page  String?  @default("Request Service")
+  cta2Text  String?  @default("Explore Services")
+  cta2Page  String?  @default("Services")
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}

@@ -1,34 +1,28 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, ADMIN_ROLES, STAFF_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-
 function invoiceEmailHtml(invoice) {
-  return `
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-      <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-      <h2 style="color:#0749B3">Invoice ${invoice.invoiceNumber}</h2>
-      <p>Hello ${invoice.clientName},</p>
-      <p>Your invoice from JPS Support Services is ready.</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b">Service</td><td style="padding:10px">${invoice.serviceDescription}</td></tr>
-        <tr><td style="padding:10px;color:#64748b">Service Amount</td><td style="padding:10px">$${Number(invoice.serviceAmount).toFixed(2)}</td></tr>
-        ${invoice.domainAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b">Domain</td><td style="padding:10px">$${Number(invoice.domainAmount).toFixed(2)}</td></tr>` : ""}
-        ${invoice.hostingAmount ? `<tr><td style="padding:10px;color:#64748b">Hosting</td><td style="padding:10px">$${Number(invoice.hostingAmount).toFixed(2)}</td></tr>` : ""}
-        ${invoice.taxAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b">Tax</td><td style="padding:10px">$${Number(invoice.taxAmount).toFixed(2)}</td></tr>` : ""}
-        ${invoice.discountAmount ? `<tr><td style="padding:10px;color:#64748b">Discount</td><td style="padding:10px">-$${Number(invoice.discountAmount).toFixed(2)}</td></tr>` : ""}
-        <tr style="border-top:2px solid #e5e7eb"><td style="padding:10px;font-weight:bold">Total</td><td style="padding:10px;font-weight:bold;font-size:18px">$${Number(invoice.totalAmount).toFixed(2)}</td></tr>
-      </table>
-      ${invoice.dueDate ? `<p style="color:#64748b">Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>` : ""}
-      ${invoice.notes ? `<p style="color:#64748b">Notes: ${invoice.notes}</p>` : ""}
-      <a href="${PORTAL_URL}" style="display:inline-block;background:#0749B3;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:16px">View Invoice in Portal</a>
-      <p style="color:#64748b;margin-top:24px">JPS Support Services &mdash; Your Digital Business Partner</p>
-    </div>
-  `;
+  return emailWrap(`
+    <h2 style="color:#0749B3;margin:0 0 8px">Invoice ${invoice.invoiceNumber}</h2>
+    <p style="color:#475569">Hello ${invoice.clientName},</p>
+    <p style="color:#475569">Your invoice from JPS Core is ready. Please review the details below.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px;font-size:13px">${invoice.serviceDescription}</td></tr>
+      <tr><td style="padding:10px;color:#64748b;font-size:13px">Service Amount</td><td style="padding:10px;font-size:13px">$${Number(invoice.serviceAmount).toFixed(2)}</td></tr>
+      ${invoice.domainAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Domain</td><td style="padding:10px;font-size:13px">$${Number(invoice.domainAmount).toFixed(2)}</td></tr>` : ""}
+      ${invoice.hostingAmount ? `<tr><td style="padding:10px;color:#64748b;font-size:13px">Hosting</td><td style="padding:10px;font-size:13px">$${Number(invoice.hostingAmount).toFixed(2)}</td></tr>` : ""}
+      ${invoice.taxAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Tax</td><td style="padding:10px;font-size:13px">$${Number(invoice.taxAmount).toFixed(2)}</td></tr>` : ""}
+      ${invoice.discountAmount ? `<tr><td style="padding:10px;color:#64748b;font-size:13px">Discount</td><td style="padding:10px;font-size:13px">-$${Number(invoice.discountAmount).toFixed(2)}</td></tr>` : ""}
+      <tr style="border-top:2px solid #0749B3"><td style="padding:12px 10px;font-weight:800;color:#0f172a">TOTAL DUE</td><td style="padding:12px 10px;font-weight:800;font-size:20px;color:#0749B3">$${Number(invoice.totalAmount).toFixed(2)}</td></tr>
+    </table>
+    ${invoice.dueDate ? `<p style="color:#64748b;font-size:13px">&#x1F4C5; Due Date: <strong>${new Date(invoice.dueDate).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</strong></p>` : ""}
+    ${invoice.notes ? `<p style="color:#64748b;font-size:13px">Notes: ${invoice.notes}</p>` : ""}
+  `);
 }
 
 router.get("/", requireAuth, async (req, res) => {
@@ -95,7 +89,7 @@ router.post("/", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
 
     sendEmail({
       to: invoice.clientEmail,
-      subject: `Invoice ${invoice.invoiceNumber} - JPS Support Services`,
+      subject: `Invoice ${invoice.invoiceNumber} — JPS Core`,
       html: invoiceEmailHtml(invoice),
     }).catch(() => {});
 
@@ -192,7 +186,7 @@ router.post("/:id/email", requireAuth, requireRole(...STAFF_ROLES), async (req, 
 
     await sendEmail({
       to: invoice.clientEmail,
-      subject: `Invoice ${invoice.invoiceNumber} - JPS Support Services`,
+      subject: `Invoice ${invoice.invoiceNumber} — JPS Core`,
       html: invoiceEmailHtml(invoice),
     });
 

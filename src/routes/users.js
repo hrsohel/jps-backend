@@ -3,11 +3,10 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, ADMIN_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
-
-const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const createUserSchema = z.object({
   fullName: z.string().min(2),
@@ -121,17 +120,13 @@ router.post("/", requireAuth, requireRole(...ADMIN_ROLES), async (req, res) => {
 
     sendEmail({
       to: user.email,
-      subject: "Your JPS Support Services Portal Account",
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-          <h2 style="color:#0749B3">Welcome to JPS Support Services!</h2>
-          <p>Hello ${user.fullName},</p>
-          <p>An account has been created for you on the JPS Client Portal. You can sign in using your email and the temporary password provided by our team.</p>
-          <a href="${PORTAL_URL}" style="display:inline-block;background:#0E9F6E;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:16px">Go to Portal</a>
-          <p style="color:#64748b;margin-top:24px">JPS Support Services &mdash; Your Digital Business Partner</p>
-        </div>
-      `,
+      subject: "Your JPS Core Portal Account",
+      html: emailWrap(`
+        <h2 style="color:#0749B3;margin:0 0 8px">Welcome to JPS Core!</h2>
+        <p style="color:#475569">Hello ${user.fullName},</p>
+        <p style="color:#475569">An account has been created for you on the JPS Core Client Portal. You can sign in using your email and the temporary password provided by our team.</p>
+        <p style="color:#475569">Through the portal you can track projects, view invoices, upload files, submit service requests, and communicate with our team.</p>
+      `),
     }).catch(() => {});
 
     res.status(201).json(user);

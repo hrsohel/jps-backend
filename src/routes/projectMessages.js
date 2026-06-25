@@ -1,10 +1,10 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, STAFF_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
-const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 // GET unread message count for the current user
 router.get("/unread-count", requireAuth, async (req, res) => {
@@ -128,19 +128,15 @@ router.post("/", requireAuth, async (req, res) => {
       if (isStaff) {
         sendEmail({
           to: project.clientEmail,
-          subject: `New Message on Project: ${project.title}`,
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-              <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-              <h2 style="color:#0749B3">New Message on Your Project</h2>
-              <p>Hello ${project.clientName},</p>
-              <p>The JPS team sent a new message on <strong>${project.title}</strong>.</p>
-              <div style="background:#f8fafc;padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #22A9E0">
-                <p style="margin:0">${req.body.message}</p>
-              </div>
-              <a href="${PORTAL_URL}" style="display:inline-block;background:#0749B3;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none">Reply in Portal</a>
+          subject: `New Message on Project: ${project.title} — JPS Core`,
+          html: emailWrap(`
+            <h2 style="color:#0749B3;margin:0 0 8px">New Message on Your Project</h2>
+            <p style="color:#475569">Hello ${project.clientName},</p>
+            <p style="color:#475569">The JPS Core team sent a new message on <strong>${project.title}</strong>.</p>
+            <div style="background:#f0f7ff;padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #22A9E0">
+              <p style="margin:0;color:#0f172a">${req.body.message}</p>
             </div>
-          `,
+          `),
         }).catch(() => {});
 
         if (project.clientUserId) {

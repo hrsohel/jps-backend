@@ -1,26 +1,16 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, ADMIN_ROLES, STAFF_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
-
-const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 function projectEmail(project, subject, bodyHtml) {
   return sendEmail({
     to: project.clientEmail,
     subject,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-        <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-        ${bodyHtml}
-        <div style="margin-top:24px">
-          <a href="${PORTAL_URL}" style="display:inline-block;background:#0749B3;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none">View in Portal</a>
-        </div>
-        <p style="color:#64748b;margin-top:24px">JPS Support Services &mdash; Your Digital Business Partner</p>
-      </div>
-    `,
+    html: emailWrap(bodyHtml),
   });
 }
 
@@ -91,14 +81,14 @@ router.post("/", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
 
     projectEmail(
       project,
-      `New Project Created: ${project.title}`,
-      `<h2 style="color:#0749B3">New Project Created</h2>
-       <p>Hello ${project.clientName},</p>
-       <p>A new project has been created for you:</p>
-       <table style="width:100%;border-collapse:collapse">
-         <tr><td style="padding:8px;color:#64748b">Project</td><td style="padding:8px"><strong>${project.title}</strong></td></tr>
-         <tr><td style="padding:8px;color:#64748b">Service</td><td style="padding:8px">${project.serviceGroup}</td></tr>
-         <tr><td style="padding:8px;color:#64748b">Status</td><td style="padding:8px">${project.status}</td></tr>
+      `New Project Created: ${project.title} — JPS Core`,
+      `<h2 style="color:#0749B3;margin:0 0 8px">New Project Created</h2>
+       <p style="color:#475569">Hello ${project.clientName},</p>
+       <p style="color:#475569">A new project has been created for you. You can track progress, upload files, and communicate with our team through the portal.</p>
+       <table style="width:100%;border-collapse:collapse;margin:12px 0">
+         <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Project</td><td style="padding:10px;font-weight:700">${project.title}</td></tr>
+         <tr><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px">${project.serviceGroup}</td></tr>
+         <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Status</td><td style="padding:10px"><span style="background:#fefce8;color:#a16207;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700">In Progress</span></td></tr>
        </table>`
     ).catch(() => {});
 

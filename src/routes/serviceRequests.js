@@ -2,11 +2,10 @@ import express from "express";
 import { z } from "zod";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, ADMIN_ROLES, STAFF_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
-
-const PORTAL_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const serviceRequestSchema = z.object({
   serviceGroup: z.string().min(2),
@@ -26,24 +25,35 @@ router.post("/", requireAuth, async (req, res) => {
 
     const request = await prisma.serviceRequest.create({ data });
 
+    // Notify all admins about the new service request
+    const adminUsers = await prisma.user.findMany({ where: { role: "ADMIN" } });
+    await Promise.all(
+      adminUsers.map((admin) =>
+        prisma.notification.create({
+          data: {
+            userId: admin.id,
+            title: "New Service Request",
+            message: `${request.contactName} submitted a "${request.serviceGroup}" request — "${request.projectTitle}".`,
+            type: "REQUEST",
+          },
+        }).catch(() => {})
+      )
+    );
+
     sendEmail({
       to: request.email,
-      subject: "Service Request Received - JPS Support Services",
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-          <h2 style="color:#0749B3">Service Request Received</h2>
-          <p>Hello ${request.contactName},</p>
-          <p>We have received your service request and our team will review it shortly.</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:8px;color:#64748b">Service</td><td style="padding:8px"><strong>${request.serviceGroup}</strong></td></tr>
-            <tr><td style="padding:8px;color:#64748b">Project</td><td style="padding:8px">${request.projectTitle}</td></tr>
-            <tr><td style="padding:8px;color:#64748b">Status</td><td style="padding:8px">Under Review</td></tr>
-          </table>
-          <a href="${PORTAL_URL}" style="display:inline-block;background:#0749B3;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:16px">View in Portal</a>
-          <p style="color:#64748b;margin-top:24px">JPS Support Services &mdash; Your Digital Business Partner</p>
-        </div>
-      `,
+      subject: "Service Request Received — JPS Core",
+      html: emailWrap(`
+        <h2 style="color:#0749B3;margin:0 0 8px">Service Request Received</h2>
+        <p style="color:#475569">Hello ${request.contactName},</p>
+        <p style="color:#475569">We have received your service request and our team will review it shortly.</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0">
+          <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px;font-weight:700">${request.serviceGroup}</td></tr>
+          <tr><td style="padding:10px;color:#64748b;font-size:13px">Project</td><td style="padding:10px">${request.projectTitle}</td></tr>
+          <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Status</td><td style="padding:10px"><span style="background:#fffbeb;color:#d97706;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700">Under Review</span></td></tr>
+        </table>
+        <p style="color:#475569;font-size:13px">Our team will contact you within 24 hours to discuss your project.</p>
+      `),
     }).catch(() => {});
 
     res.status(201).json({ message: "Service request submitted successfully", request });
@@ -79,21 +89,17 @@ router.patch("/:id/approve", requireAuth, requireRole(...STAFF_ROLES), async (re
 
     sendEmail({
       to: request.email,
-      subject: "Service Request Approved - JPS Support Services",
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-          <h2 style="color:#0E9F6E">Service Request Approved!</h2>
-          <p>Hello ${request.contactName},</p>
-          <p>Great news! Your service request has been approved. Our team will be in touch shortly to get started.</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:8px;color:#64748b">Service</td><td style="padding:8px"><strong>${request.serviceGroup}</strong></td></tr>
-            <tr><td style="padding:8px;color:#64748b">Project</td><td style="padding:8px">${request.projectTitle}</td></tr>
-          </table>
-          <a href="${PORTAL_URL}" style="display:inline-block;background:#0E9F6E;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:16px">View in Portal</a>
-          <p style="color:#64748b;margin-top:24px">JPS Support Services</p>
-        </div>
-      `,
+      subject: "Service Request Approved — JPS Core",
+      html: emailWrap(`
+        <h2 style="color:#0E9F6E;margin:0 0 8px">Service Request Approved!</h2>
+        <p style="color:#475569">Hello ${request.contactName},</p>
+        <p style="color:#475569">Great news! Your service request has been approved. Our team will be in touch shortly to get started.</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0">
+          <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px;font-weight:700">${request.serviceGroup}</td></tr>
+          <tr><td style="padding:10px;color:#64748b;font-size:13px">Project</td><td style="padding:10px">${request.projectTitle}</td></tr>
+          <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Status</td><td style="padding:10px"><span style="background:#f0fdf4;color:#15803d;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700">Approved</span></td></tr>
+        </table>
+      `),
     }).catch(() => {});
 
     res.json(request);
@@ -111,21 +117,16 @@ router.patch("/:id/reject", requireAuth, requireRole(...STAFF_ROLES), async (req
 
     sendEmail({
       to: request.email,
-      subject: "Service Request Update - JPS Support Services",
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px">
-          <img src="https://app.jpssupport.com/assets/jps-support-services-primary-logo.png" alt="JPS Support Services" style="height:50px;margin-bottom:20px" />
-          <h2 style="color:#0749B3">Service Request Update</h2>
-          <p>Hello ${request.contactName},</p>
-          <p>After reviewing your service request, we are unable to proceed at this time. Please contact our team if you have questions or would like to discuss alternatives.</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:8px;color:#64748b">Service</td><td style="padding:8px"><strong>${request.serviceGroup}</strong></td></tr>
-            <tr><td style="padding:8px;color:#64748b">Project</td><td style="padding:8px">${request.projectTitle}</td></tr>
-          </table>
-          <a href="${PORTAL_URL}" style="display:inline-block;background:#0749B3;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:16px">View in Portal</a>
-          <p style="color:#64748b;margin-top:24px">JPS Support Services</p>
-        </div>
-      `,
+      subject: "Service Request Update — JPS Core",
+      html: emailWrap(`
+        <h2 style="color:#0749B3;margin:0 0 8px">Service Request Update</h2>
+        <p style="color:#475569">Hello ${request.contactName},</p>
+        <p style="color:#475569">After reviewing your service request, we are unable to proceed at this time. Please contact our team if you have questions or would like to discuss alternatives.</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0">
+          <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px;font-weight:700">${request.serviceGroup}</td></tr>
+          <tr><td style="padding:10px;color:#64748b;font-size:13px">Project</td><td style="padding:10px">${request.projectTitle}</td></tr>
+        </table>
+      `),
     }).catch(() => {});
 
     res.json(request);
