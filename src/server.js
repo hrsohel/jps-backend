@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import userRoutes from "./routes/users.js";
 import authRoutes from "./routes/auth.js";
@@ -27,6 +28,8 @@ import siteBannerRoutes from "./routes/siteBanner.js";
 import { startCleanupJobs } from "./jobs/cleanup.js";
 
 dotenv.config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
@@ -78,7 +81,7 @@ app.use(
     },
   })
 );
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(limiter);
 
 app.use("/api/auth", authLimiter, authRoutes);

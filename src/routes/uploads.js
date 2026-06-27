@@ -1,11 +1,19 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from "url";
 import prisma from "../lib/prisma.js";
 import fs from "fs";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
+
+// Absolute path to api/uploads/ regardless of cwd
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_ROOT = path.resolve(__dirname, "../../uploads");
+
+fs.mkdirSync(path.join(UPLOADS_ROOT, "projects"),  { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_ROOT, "campaigns"), { recursive: true });
 
 const ALLOWED_EXTENSIONS = [
   ".jpg", ".jpeg", ".png", ".gif", ".webp",
@@ -15,7 +23,7 @@ const ALLOWED_EXTENSIONS = [
 ];
 
 const storage = multer.diskStorage({
-  destination: "uploads/projects",
+  destination: path.join(UPLOADS_ROOT, "projects"),
   filename: (req, file, cb) => {
     const uniqueName = Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
     cb(null, uniqueName);
@@ -38,10 +46,8 @@ const upload = multer({
 // ── Image uploads for email campaigns/banners ──
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
-fs.mkdirSync("uploads/campaigns", { recursive: true });
-
 const imageStorage = multer.diskStorage({
-  destination: "uploads/campaigns",
+  destination: path.join(UPLOADS_ROOT, "campaigns"),
   filename: (req, file, cb) => {
     const uniqueName = Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
     cb(null, uniqueName);
@@ -66,9 +72,12 @@ router.post("/image", requireAuth, imageUpload.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No image uploaded" });
   }
-  const relPath = req.file.path.replace(/\\/g, "/");
-  const url = `${req.protocol}://${req.get("host")}/${relPath}`;
-  res.status(201).json({ url, filename: req.file.filename });
+  const filename = req.file.filename;
+  const apiBase = process.env.CLIENT_ORIGIN
+    ? process.env.CLIENT_ORIGIN.replace(/\/$/, "")
+    : `${req.protocol}://${req.get("host")}`;
+  const url = `${apiBase}/uploads/campaigns/${filename}`;
+  res.status(201).json({ url, filename });
 });
 
 router.post("/projects", requireAuth, upload.single("file"), async (req, res) => {
@@ -82,7 +91,7 @@ router.post("/projects", requireAuth, upload.single("file"), async (req, res) =>
         projectId: Number(req.body.projectId),
         originalName: req.file.originalname,
         filename: req.file.filename,
-        path: req.file.path,
+        path: `uploads/projects/${req.file.filename}`,  // always relative URL path
       },
     });
 
@@ -148,8 +157,9 @@ router.delete("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "File not found" });
     }
 
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
+    const diskPath = path.join(UPLOADS_ROOT, "projects", file.filename);
+    if (fs.existsSync(diskPath)) {
+      fs.unlinkSync(diskPath);
     }
 
     await prisma.projectFile.delete({ where: { id: Number(req.params.id) } });
