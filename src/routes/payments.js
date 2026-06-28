@@ -151,7 +151,7 @@ router.get("/config", requireAuth, (req, res) => {
 });
 
 // GET /api/payments/admin/summary  (admin only)
-router.get("/admin/summary", requireAuth, requireRole(ADMIN_ROLES), async (req, res) => {
+router.get("/admin/summary", requireAuth, requireRole(...ADMIN_ROLES), async (req, res) => {
   try {
     const [paidInvoices, pendingInvoices] = await Promise.all([
       prisma.invoice.aggregate({ where: { status: "PAID" }, _sum: { totalAmount: true }, _count: true }),
