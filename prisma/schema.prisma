@@ -112,12 +112,21 @@ model Invoice {
 }
 
 model ProjectFile {
-  id           Int      @id @default(autoincrement())
-  projectId    Int
-  originalName String
-  filename     String
-  path         String   @db.Text
-  createdAt    DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  projectId      Int
+  originalName   String
+  filename       String
+  path           String   @db.Text
+  uploadedByRole String   @default("CLIENT")
+  approvalStatus String   @default("APPROVED")
+  createdAt      DateTime @default(now())
+}
+
+model AppSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
 }
 
 model ProjectMessage {

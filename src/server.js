@@ -25,6 +25,7 @@ import emailTemplateRoutes from "./routes/emailTemplates.js";
 import zoomWebhookRoutes from "./routes/zoomWebhook.js";
 import paymentRoutes from "./routes/payments.js";
 import siteBannerRoutes from "./routes/siteBanner.js";
+import settingsRoutes from "./routes/settings.js";
 import { startCleanupJobs } from "./jobs/cleanup.js";
 
 dotenv.config();
@@ -103,6 +104,7 @@ app.use("/api/email-templates", emailTemplateRoutes);
 app.use("/api/zoom", zoomWebhookRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/site-banner", siteBannerRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "JPS Client Portal API", timestamp: new Date().toISOString() });

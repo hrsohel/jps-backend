@@ -86,12 +86,17 @@ router.post("/projects", requireAuth, upload.single("file"), async (req, res) =>
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    const uploadedByRole = req.user?.role || "CLIENT";
+    const isStaffUpload = ["ADMIN", "STAFF"].includes(uploadedByRole);
+
     const savedFile = await prisma.projectFile.create({
       data: {
         projectId: Number(req.body.projectId),
         originalName: req.file.originalname,
         filename: req.file.filename,
         path: `uploads/projects/${req.file.filename}`,  // always relative URL path
+        uploadedByRole,
+        approvalStatus: isStaffUpload ? "PENDING_APPROVAL" : "APPROVED",
       },
     });
 
@@ -101,12 +106,15 @@ router.post("/projects", requireAuth, upload.single("file"), async (req, res) =>
     }).catch(() => null);
 
     if (project) {
-      if (project.clientUserId && project.clientUserId !== req.user.userId) {
+      if (project.clientUserId && project.clientUserId !== req.user.id) {
+        const notifMessage = isStaffUpload
+          ? `JPS Core uploaded "${req.file.originalname}" to your project "${project.title}". Please review and approve.`
+          : `A new file "${req.file.originalname}" was uploaded to your project "${project.title}".`;
         await prisma.notification.create({
           data: {
             userId: project.clientUserId,
-            title: "New File Available",
-            message: `A new file "${req.file.originalname}" was uploaded to your project "${project.title}".`,
+            title: isStaffUpload ? "File Requires Your Approval" : "New File Available",
+            message: notifMessage,
             type: "FILE",
           },
         }).catch(() => {});
@@ -146,6 +154,47 @@ router.get("/projects/:projectId", requireAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Unable to load files" });
+  }
+});
+
+router.patch("/:id/approve", requireAuth, async (req, res) => {
+  try {
+    const file = await prisma.projectFile.findUnique({ where: { id: Number(req.params.id) } });
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    // Verify requester owns the project (client) or is staff
+    const project = await prisma.project.findUnique({ where: { id: file.projectId } });
+    const isOwner = project?.clientUserId === req.user.id;
+    const isStaff = ["ADMIN", "STAFF"].includes(req.user.role);
+    if (!isOwner && !isStaff) return res.status(403).json({ error: "Access denied" });
+
+    const updated = await prisma.projectFile.update({
+      where: { id: Number(req.params.id) },
+      data: { approvalStatus: "APPROVED" },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Unable to approve file" });
+  }
+});
+
+router.patch("/:id/reject", requireAuth, async (req, res) => {
+  try {
+    const file = await prisma.projectFile.findUnique({ where: { id: Number(req.params.id) } });
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    const project = await prisma.project.findUnique({ where: { id: file.projectId } });
+    const isOwner = project?.clientUserId === req.user.id;
+    const isStaff = ["ADMIN", "STAFF"].includes(req.user.role);
+    if (!isOwner && !isStaff) return res.status(403).json({ error: "Access denied" });
+
+    const updated = await prisma.projectFile.update({
+      where: { id: Number(req.params.id) },
+      data: { approvalStatus: "REJECTED" },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Unable to reject file" });
   }
 });
 

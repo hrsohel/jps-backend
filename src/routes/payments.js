@@ -5,9 +5,18 @@ import { requireAuth, requireRole, ADMIN_ROLES } from "../middleware/auth.js";
 
 const router = express.Router();
 
-function getStripe() {
+async function getStripeKey() {
+  try {
+    const setting = await prisma.appSetting.findUnique({ where: { key: "STRIPE_SECRET_KEY" } });
+    if (setting?.value) return setting.value;
+  } catch (_) { /* DB not reachable — fall back to env */ }
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return key;
+}
+
+async function getStripe() {
+  const key = await getStripeKey();
   return new Stripe(key, { apiVersion: "2024-04-10" });
 }
 
@@ -27,7 +36,7 @@ router.post("/create-payment-intent", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invoice is already paid" });
     }
 
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const amountCents = Math.round(Number(invoice.totalAmount) * 100);
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -57,7 +66,7 @@ router.post("/confirm-payment", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "paymentIntentId and invoiceId required" });
     }
 
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (pi.status !== "succeeded") {
@@ -99,7 +108,7 @@ router.post("/checkout-session", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invoice is already paid" });
     }
 
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const frontendUrl = process.env.FRONTEND_URL || "https://my.jpscoreinc.com";
     const amountCents = Math.round(Number(invoice.totalAmount) * 100);
 
@@ -154,7 +163,7 @@ router.get("/admin/summary", requireAuth, requireRole(ADMIN_ROLES), async (req, 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (stripeKey) {
       try {
-        const stripe = getStripe();
+        const stripe = await getStripe();
         balance = await stripe.balance.retrieve();
       } catch (_) { /* Stripe not reachable — continue without it */ }
     }
