@@ -8,11 +8,11 @@ const router = express.Router();
 async function getStripeKey() {
   try {
     const setting = await prisma.appSetting.findUnique({ where: { key: "STRIPE_SECRET_KEY" } });
-    if (setting?.value) return setting.value;
+    if (setting?.value) return setting.value.trim();
   } catch (_) { /* DB not reachable — fall back to env */ }
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
-  return key;
+  return key.trim();
 }
 
 async function getStripe() {
@@ -109,7 +109,7 @@ router.post("/checkout-session", requireAuth, async (req, res) => {
     }
 
     const stripe = await getStripe();
-    const frontendUrl = process.env.FRONTEND_URL || "https://my.jpscoreinc.com";
+    const frontendUrl = (process.env.FRONTEND_URL || "https://my.jpscoreinc.com").trim().replace(/\/$/, "");
     const amountCents = Math.round(Number(invoice.totalAmount) * 100);
 
     const session = await stripe.checkout.sessions.create({
