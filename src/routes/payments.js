@@ -109,7 +109,6 @@ router.post("/checkout-session", requireAuth, async (req, res) => {
     }
 
     const stripe = await getStripe();
-    const frontendUrl = (process.env.FRONTEND_URL || "https://my.jpscoreinc.com").trim().replace(/\/$/, "");
     const amountCents = Math.round(Number(invoice.totalAmount) * 100);
 
     const session = await stripe.checkout.sessions.create({
@@ -133,8 +132,8 @@ router.post("/checkout-session", requireAuth, async (req, res) => {
         invoiceId: String(invoice.id),
         invoiceNumber: invoice.invoiceNumber,
       },
-      success_url: `${frontendUrl}?page=invoice-paid&invoice=${invoice.id}`,
-      cancel_url: `${frontendUrl}?page=Invoices`,
+      success_url: `https://my.jpscoreinc.com/?page=invoice-paid&invoice=${invoice.id}`,
+      cancel_url: `https://my.jpscoreinc.com/?page=Invoices`,
     });
 
     res.json({ url: session.url });
