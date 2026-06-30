@@ -191,6 +191,15 @@ router.patch("/:id/paid", requireAuth, requireRole(...STAFF_ROLES), async (req, 
   }
 });
 
+router.delete("/:id", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
+  try {
+    await prisma.invoice.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Unable to delete invoice" });
+  }
+});
+
 router.post("/:id/email", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
   try {
     const invoice = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
