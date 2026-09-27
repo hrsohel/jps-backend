@@ -28,6 +28,7 @@ import siteBannerRoutes from "./routes/siteBanner.js";
 import settingsRoutes from "./routes/settings.js";
 import whmcsRoutes from "./routes/whmcs.js";
 import { startCleanupJobs } from "./jobs/cleanup.js";
+import { startInvoiceReminderJob } from "./jobs/invoiceReminders.js";
 
 dotenv.config();
 
@@ -134,6 +135,7 @@ const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
   console.log(`JPS API running on port ${port}`);
   startCleanupJobs();
+  startInvoiceReminderJob();
 });
 
 server.on("error", (err) => {

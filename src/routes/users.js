@@ -118,16 +118,19 @@ router.post("/", requireAuth, requireRole(...ADMIN_ROLES), async (req, res) => {
       select: PROFILE_SELECT,
     });
 
-    sendEmail({
-      to: user.email,
-      subject: "Your JPS Core Portal Account",
-      html: emailWrap(`
-        <h2 style="color:#0749B3;margin:0 0 8px">Welcome to JPS Core!</h2>
-        <p style="color:#475569">Hello ${user.fullName},</p>
-        <p style="color:#475569">An account has been created for you on the JPS Core Client Portal. You can sign in using your email and the temporary password provided by our team.</p>
-        <p style="color:#475569">Through the portal you can track projects, view invoices, upload files, submit service requests, and communicate with our team.</p>
-      `),
-    }).catch(() => {});
+    const shouldNotify = req.body.notify === undefined || req.body.notify === true || req.body.notify === "true";
+    if (shouldNotify) {
+      sendEmail({
+        to: user.email,
+        subject: "Your JPS Core Portal Account",
+        html: emailWrap(`
+          <h2 style="color:#0749B3;margin:0 0 8px">Welcome to JPS Core!</h2>
+          <p style="color:#475569">Hello ${user.fullName},</p>
+          <p style="color:#475569">An account has been created for you on the JPS Core Client Portal. You can sign in using your email and the temporary password provided by our team.</p>
+          <p style="color:#475569">Through the portal you can track projects, view invoices, upload files, submit service requests, and communicate with our team.</p>
+        `),
+      }).catch(() => {});
+    }
 
     res.status(201).json(user);
   } catch (error) {

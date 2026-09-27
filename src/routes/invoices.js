@@ -1,29 +1,10 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { emailWrap, PORTAL_URL } from "../utils/emailLayout.js";
 import { requireAuth, requireRole, ADMIN_ROLES, STAFF_ROLES } from "../middleware/auth.js";
+import { computeInvoiceAmounts, ensureGuestToken, generateGuestToken, invoiceEmailHtml } from "../lib/invoiceHelpers.js";
 
 const router = express.Router();
-
-function invoiceEmailHtml(invoice) {
-  return emailWrap(`
-    <h2 style="color:#0749B3;margin:0 0 8px">Invoice ${invoice.invoiceNumber}</h2>
-    <p style="color:#475569">Hello ${invoice.clientName},</p>
-    <p style="color:#475569">Your invoice from JPS Core is ready. Please review the details below.</p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Service</td><td style="padding:10px;font-size:13px">${invoice.serviceDescription}</td></tr>
-      <tr><td style="padding:10px;color:#64748b;font-size:13px">Service Amount</td><td style="padding:10px;font-size:13px">$${Number(invoice.serviceAmount).toFixed(2)}</td></tr>
-      ${invoice.domainAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Domain</td><td style="padding:10px;font-size:13px">$${Number(invoice.domainAmount).toFixed(2)}</td></tr>` : ""}
-      ${invoice.hostingAmount ? `<tr><td style="padding:10px;color:#64748b;font-size:13px">Hosting</td><td style="padding:10px;font-size:13px">$${Number(invoice.hostingAmount).toFixed(2)}</td></tr>` : ""}
-      ${invoice.taxAmount ? `<tr style="background:#f8fafc"><td style="padding:10px;color:#64748b;font-size:13px">Tax</td><td style="padding:10px;font-size:13px">$${Number(invoice.taxAmount).toFixed(2)}</td></tr>` : ""}
-      ${invoice.discountAmount ? `<tr><td style="padding:10px;color:#64748b;font-size:13px">Discount</td><td style="padding:10px;font-size:13px">-$${Number(invoice.discountAmount).toFixed(2)}</td></tr>` : ""}
-      <tr style="border-top:2px solid #0749B3"><td style="padding:12px 10px;font-weight:800;color:#0f172a">TOTAL DUE</td><td style="padding:12px 10px;font-weight:800;font-size:20px;color:#0749B3">$${Number(invoice.totalAmount).toFixed(2)}</td></tr>
-    </table>
-    ${invoice.dueDate ? `<p style="color:#64748b;font-size:13px">&#x1F4C5; Due Date: <strong>${new Date(invoice.dueDate).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</strong></p>` : ""}
-    ${invoice.notes ? `<p style="color:#64748b;font-size:13px">Notes: ${invoice.notes}</p>` : ""}
-  `);
-}
 
 router.get("/", requireAuth, async (req, res) => {
   try {
@@ -46,6 +27,8 @@ router.get("/", requireAuth, async (req, res) => {
 
 router.post("/", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
   try {
+    const amounts = computeInvoiceAmounts(req.body);
+
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber: `INV-${Date.now()}`,
@@ -53,24 +36,11 @@ router.post("/", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
         clientName: req.body.clientName,
         clientEmail: req.body.clientEmail,
         serviceDescription: req.body.serviceDescription,
-        serviceAmount: Number(req.body.serviceAmount || 0),
-        domainAmount: Number(req.body.domainAmount || 0),
-        hostingAmount: Number(req.body.hostingAmount || 0),
-        shippingAmount: Number(req.body.shippingAmount || 0),
-        installationAmount: Number(req.body.installationAmount || 0),
-        taxAmount: Number(req.body.taxAmount || 0),
-        discountAmount: Number(req.body.discountAmount || 0),
-        totalAmount:
-          Number(req.body.serviceAmount || 0) +
-          Number(req.body.domainAmount || 0) +
-          Number(req.body.hostingAmount || 0) +
-          Number(req.body.shippingAmount || 0) +
-          Number(req.body.installationAmount || 0) +
-          Number(req.body.taxAmount || 0) -
-          Number(req.body.discountAmount || 0),
+        ...amounts,
         dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
         notes: req.body.notes || null,
         status: "DRAFT",
+        guestToken: generateGuestToken(),
       },
     });
 
@@ -116,29 +86,21 @@ router.get("/:id", requireAuth, async (req, res) => {
 
 router.patch("/:id", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
   try {
-    const invoice = await prisma.invoice.update({
+    const existing = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
+    if (!existing) return res.status(404).json({ error: "Invoice not found" });
+
+    const amounts = computeInvoiceAmounts(req.body, existing);
+
+    let invoice = await prisma.invoice.update({
       where: { id: Number(req.params.id) },
       data: {
-        serviceAmount: Number(req.body.serviceAmount || 0),
-        domainAmount: Number(req.body.domainAmount || 0),
-        hostingAmount: Number(req.body.hostingAmount || 0),
-        shippingAmount: Number(req.body.shippingAmount || 0),
-        installationAmount: Number(req.body.installationAmount || 0),
-        taxAmount: Number(req.body.taxAmount || 0),
-        discountAmount: Number(req.body.discountAmount || 0),
-        totalAmount:
-          Number(req.body.serviceAmount || 0) +
-          Number(req.body.domainAmount || 0) +
-          Number(req.body.hostingAmount || 0) +
-          Number(req.body.shippingAmount || 0) +
-          Number(req.body.installationAmount || 0) +
-          Number(req.body.taxAmount || 0) -
-          Number(req.body.discountAmount || 0),
+        ...amounts,
         dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
         notes: req.body.notes !== undefined ? req.body.notes : undefined,
-        status: "SENT",
+        status: existing.status === "DRAFT" ? "SENT" : existing.status,
       },
     });
+    invoice = await ensureGuestToken(prisma, invoice);
 
     // Notify client that invoice has been updated/sent
     const clientUser = await prisma.user.findUnique({ where: { email: invoice.clientEmail } });
@@ -180,9 +142,12 @@ router.patch("/:id/sent", requireAuth, requireRole(...STAFF_ROLES), async (req, 
 
 router.patch("/:id/paid", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
   try {
+    const existing = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
+    if (!existing) return res.status(404).json({ error: "Invoice not found" });
+
     const invoice = await prisma.invoice.update({
       where: { id: Number(req.params.id) },
-      data: { status: "PAID" },
+      data: { status: "PAID", amountPaid: existing.totalAmount, paidAt: existing.paidAt || new Date() },
     });
 
     res.json(invoice);
@@ -202,11 +167,12 @@ router.delete("/:id", requireAuth, requireRole(...STAFF_ROLES), async (req, res)
 
 router.post("/:id/email", requireAuth, requireRole(...STAFF_ROLES), async (req, res) => {
   try {
-    const invoice = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
+    let invoice = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
 
     if (!invoice) {
       return res.status(404).json({ error: "Invoice not found" });
     }
+    invoice = await ensureGuestToken(prisma, invoice);
 
     await sendEmail({
       to: invoice.clientEmail,
@@ -218,6 +184,23 @@ router.post("/:id/email", requireAuth, requireRole(...STAFF_ROLES), async (req, 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Unable to send invoice email" });
+  }
+});
+
+// Guest Checkout — lets an unregistered client open an invoice via the tokenized
+// link from their invoice email, no login required.
+router.get("/guest/:id", async (req, res) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({ where: { id: Number(req.params.id) } });
+
+    if (!invoice || !invoice.guestToken || invoice.guestToken !== req.query.token) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+
+    res.json(invoice);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Unable to load invoice" });
   }
 });
 
