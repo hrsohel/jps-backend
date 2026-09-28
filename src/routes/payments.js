@@ -39,12 +39,20 @@ function resolvePayAmount(invoice, requestedAmount) {
     : balanceDue;
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error("Enter a valid payment amount");
+    throw Object.assign(new Error("Enter a valid payment amount"), { expose: true });
   }
   if (amount > balanceDue + 0.01) {
-    throw new Error(`Amount exceeds the balance due ($${balanceDue.toFixed(2)})`);
+    throw Object.assign(new Error(`Amount exceeds the balance due ($${balanceDue.toFixed(2)})`), { expose: true });
   }
   return Math.round(amount * 100) / 100;
+}
+
+// Only relays an error's own message to the client when it was deliberately
+// thrown for the user (marked with `expose`). Everything else — Prisma,
+// Stripe, or any other internal failure — gets a generic message instead,
+// since those raw messages can include internal schema/type details.
+function safeMessage(err, fallback) {
+  return err?.expose ? err.message : fallback;
 }
 
 async function applyPayment(invoiceId, paidAmount) {
@@ -121,7 +129,7 @@ router.post("/create-payment-intent", requireAuth, async (req, res) => {
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error("Stripe create-payment-intent error:", err);
-    res.status(500).json({ error: err.message || "Payment processing error" });
+    res.status(500).json({ error: safeMessage(err, "Payment processing error") });
   }
 });
 
@@ -156,7 +164,7 @@ router.post("/confirm-payment", requireAuth, async (req, res) => {
     res.json({ ok: true, invoice: updated });
   } catch (err) {
     console.error("Stripe confirm-payment error:", err);
-    res.status(500).json({ error: err.message || "Confirmation error" });
+    res.status(500).json({ error: safeMessage(err, "Confirmation error") });
   }
 });
 
@@ -219,7 +227,7 @@ router.post("/checkout-session", requireAuth, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error("Stripe checkout-session error:", err);
-    res.status(500).json({ error: err.message || "Checkout error" });
+    res.status(500).json({ error: safeMessage(err, "Checkout error") });
   }
 });
 
@@ -243,7 +251,7 @@ router.post("/guest/checkout-session", async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error("Stripe guest checkout-session error:", err);
-    res.status(500).json({ error: err.message || "Checkout error" });
+    res.status(500).json({ error: safeMessage(err, "Checkout error") });
   }
 });
 
@@ -322,7 +330,7 @@ router.get("/admin/summary", requireAuth, requireRole(...ADMIN_ROLES), async (re
     });
   } catch (err) {
     console.error("Admin summary error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, "Unable to load payment summary") });
   }
 });
 
