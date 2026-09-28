@@ -7,7 +7,8 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "seed": "node prisma/seed.mjs",
-    "deploy": "node src/server.js"
+    "deploy": "node src/server.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
