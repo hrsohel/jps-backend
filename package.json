@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node api.js && node src/server.js",
-    "start": "node api.js && node src/server.js",
+    "dev": "node init && node src/server.js",
+    "start": "node init && node src/server.js",
     "seed": "node prisma/seed.mjs",
     "deploy": "node src/server.js",
-    "postinstall": "prisma generate --schema=\"$INIT_CWD/prisma/schema.prisma\""
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -28,5 +28,8 @@
   },
   "devDependencies": {
     "prisma": "^6.19.3"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
   }
 }
